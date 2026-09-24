@@ -104,6 +104,8 @@ make helm-template  # helm template render check
 ## Observability
 
 * Prometheus metrics at `:8080/metrics` (controller-runtime + custom `shardedcache_reconcile_total`).
+* ServiceMonitor at `config/manager/servicemonitor.yaml` for Prometheus Operator (30s scrape).
+* Grafana dashboard: `config/grafana/dashboard.json` (reconcile rate, queue depth, ready shards).
 * Liveness/Readiness probes on manager.
 
 ## Testing
