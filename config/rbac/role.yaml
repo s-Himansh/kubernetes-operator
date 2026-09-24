@@ -1,0 +1,33 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+  - apiGroups: ["cache.example.com"]
+    resources: ["shardedcaches"]
+    verbs: ["get","list","watch","create","update","patch","delete"]
+  - apiGroups: ["cache.example.com"]
+    resources: ["shardedcaches/status","shardedcaches/finalizers"]
+    verbs: ["get","update","patch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get","list","watch","create","update","patch","delete"]
+  - apiGroups: [""]
+    resources: ["services","events","configmaps"]
+    verbs: ["get","list","watch","create","update","patch","delete"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get","list","watch","create","update","patch","delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: manager-role
+subjects:
+  - kind: ServiceAccount
+    name: controller-manager
+    namespace: cache-system
