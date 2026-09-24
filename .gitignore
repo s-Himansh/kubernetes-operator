@@ -1,0 +1,41 @@
+# Binaries
+/bin/
+/manager
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test coverage
+coverage.txt
+coverage.html
+*.cover
+*.out
+
+# Kubebuilder / controller-tools
+/config/crd/bases/*.yaml.bak
+
+# Go workspace
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# envtest binaries
+testbin/
+
+# Helm
+charts/kubernetes-operator/charts/
+charts/kubernetes-operator/Chart.lock
+
+# Local dev
+.env
+kubeconfig
