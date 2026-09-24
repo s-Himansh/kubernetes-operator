@@ -1,0 +1,78 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: shardedcaches.cache.example.com
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.15.0
+spec:
+  group: cache.example.com
+  names:
+    kind: ShardedCache
+    listKind: ShardedCacheList
+    plural: shardedcaches
+    shortNames: [sc]
+    singular: shardedcache
+  scope: Namespaced
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Shards
+          type: integer
+          jsonPath: .spec.shards
+        - name: Ready
+          type: integer
+          jsonPath: .status.readyShards
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            apiVersion: {type: string}
+            kind: {type: string}
+            metadata: {type: object}
+            spec:
+              type: object
+              properties:
+                shards:
+                  type: integer
+                  minimum: 1
+                  maximum: 64
+                  default: 16
+                cacheSizePerShard:
+                  type: integer
+                  minimum: 1
+                  default: 1000
+                image:
+                  type: string
+                  default: ghcr.io/s-himansh/shared-lru-cache:latest
+                version: {type: string}
+                resources:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+              required: []
+            status:
+              type: object
+              properties:
+                readyShards: {type: integer}
+                phase: {type: string}
+                observedGeneration: {type: integer, format: int64}
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type: {type: string}
+                      status: {type: string}
+                      observedGeneration: {type: integer, format: int64}
+                      lastTransitionTime: {type: string, format: date-time}
+                      reason: {type: string}
+                      message: {type: string}
