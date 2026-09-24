@@ -1,0 +1,17 @@
+apiVersion: cache.example.com/v1
+kind: ShardedCache
+metadata:
+  name: demo
+  namespace: default
+spec:
+  shards: 4
+  cacheSizePerShard: 256
+  image: ghcr.io/s-himansh/shared-lru-cache:latest
+  version: v0.1.0
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
