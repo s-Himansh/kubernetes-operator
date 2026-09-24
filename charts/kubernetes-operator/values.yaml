@@ -1,0 +1,40 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/s-himansh/kubernetes-operator
+  tag: latest
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: controller-manager
+
+rbac:
+  create: true
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+metrics:
+  enabled: true
+  port: 8080
+
+health:
+  port: 8081
+
+leaderElection:
+  enabled: true
+
+crd:
+  keep: true
+
+cache:
+  defaultImage: ghcr.io/s-himansh/shared-lru-cache:latest

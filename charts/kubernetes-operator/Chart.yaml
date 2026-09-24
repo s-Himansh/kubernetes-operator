@@ -1,0 +1,16 @@
+apiVersion: v2
+name: kubernetes-operator
+description: Kubernetes Operator for ShardedCache CRD — manages shared-lru-cache deployments
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - operator
+  - kubernetes
+  - cache
+home: https://github.com/s-Himansh/kubernetes-operator
+sources:
+  - https://github.com/s-Himansh/kubernetes-operator
+maintainers:
+  - name: Himanshu Sharma
+    email: sharma2003hs134@gmail.com
