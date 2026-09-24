@@ -17,6 +17,13 @@ jobs:
           cache: true
       - name: Vet
         run: go vet ./...
+      - name: Setup envtest
+        run: |
+          go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+          mkdir -p /tmp/kubebuilder
+          BIN=$(go env GOPATH)/bin/setup-envtest
+          KUBEBUILDER_ASSETS=$($BIN use 1.30 --bin-dir /tmp/kubebuilder -p path)
+          echo "KUBEBUILDER_ASSETS=$KUBEBUILDER_ASSETS" >> $GITHUB_ENV
       - name: Test (unit + webhook)
         run: go test -v -race -coverprofile=coverage.out ./...
       - name: Build
