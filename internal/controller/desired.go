@@ -5,6 +5,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -35,6 +36,12 @@ func desiredDeployment(sc *cachev1.ShardedCache) *appsv1.Deployment {
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: labels},
 				Spec: corev1.PodSpec{
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsNonRoot: boolPtr(true),
+						SeccompProfile: &corev1.SeccompProfile{
+							Type: corev1.SeccompProfileTypeRuntimeDefault,
+						},
+					},
 					Containers: []corev1.Container{{
 						Name:  "cache",
 						Image: sc.Spec.Image,
@@ -45,6 +52,13 @@ func desiredDeployment(sc *cachev1.ShardedCache) *appsv1.Deployment {
 							{Name: "PORT", Value: "8080"},
 						},
 						Resources: sc.Spec.Resources,
+						SecurityContext: &corev1.SecurityContext{
+							AllowPrivilegeEscalation: boolPtr(false),
+							RunAsNonRoot:             boolPtr(true),
+							Capabilities: &corev1.Capabilities{
+								Drop: []corev1.Capability{"ALL"},
+							},
+						},
 						LivenessProbe: &corev1.Probe{
 							ProbeHandler: corev1.ProbeHandler{
 								HTTPGet: &corev1.HTTPGetAction{Path: "/api/health", Port: intstr.FromInt(8080)},
@@ -75,7 +89,8 @@ func desiredService(sc *cachev1.ShardedCache) *corev1.Service {
 			Labels:    labels,
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: labels,
+			ClusterIP: "None",
+			Selector:  labels,
 			Ports: []corev1.ServicePort{{
 				Name:       "http",
 				Port:       80,
@@ -86,13 +101,37 @@ func desiredService(sc *cachev1.ShardedCache) *corev1.Service {
 	}
 }
 
+func boolPtr(b bool) *bool { return &b }
+
+func desiredPDB(sc *cachev1.ShardedCache) *policyv1.PodDisruptionBudget {
+	labels := cacheLabels(sc.Name)
+	minAvailable := intstr.FromInt32(1)
+	if sc.Spec.Shards <= 1 {
+		minAvailable = intstr.FromInt32(0)
+	}
+	return &policyv1.PodDisruptionBudget{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      sc.Name + "-cache",
+			Namespace: sc.Namespace,
+			Labels:    labels,
+		},
+		Spec: policyv1.PodDisruptionBudgetSpec{
+			MinAvailable: &minAvailable,
+			Selector:     &metav1.LabelSelector{MatchLabels: labels},
+		},
+	}
+}
+
 // syncDeploymentContainers copies managed fields from desired into existing.
 // It returns true if existing was mutated and needs a write.
 func syncDeploymentContainers(existing *appsv1.Deployment, desired *appsv1.Deployment, sc *cachev1.ShardedCache) bool {
-	if len(existing.Spec.Template.Spec.Containers) == 0 || len(desired.Spec.Template.Spec.Containers) == 0 {
-		return false
-	}
 	mutated := false
+	if syncPodSecurity(existing, desired) {
+		mutated = true
+	}
+	if len(existing.Spec.Template.Spec.Containers) == 0 || len(desired.Spec.Template.Spec.Containers) == 0 {
+		return mutated
+	}
 
 	existingContainer := &existing.Spec.Template.Spec.Containers[0]
 	desiredContainer := desired.Spec.Template.Spec.Containers[0]
@@ -110,6 +149,21 @@ func syncDeploymentContainers(existing *appsv1.Deployment, desired *appsv1.Deplo
 		"CACHE_CAPACITY": fmt.Sprintf("%d", sc.Spec.CacheSizePerShard*sc.Spec.Shards),
 	}) {
 		mutated = true
+	}
+	return mutated
+}
+
+func syncPodSecurity(existing *appsv1.Deployment, desired *appsv1.Deployment) bool {
+	mutated := false
+	if !apiequality.Semantic.DeepEqual(existing.Spec.Template.Spec.SecurityContext, desired.Spec.Template.Spec.SecurityContext) {
+		existing.Spec.Template.Spec.SecurityContext = desired.Spec.Template.Spec.SecurityContext
+		mutated = true
+	}
+	if len(existing.Spec.Template.Spec.Containers) > 0 && len(desired.Spec.Template.Spec.Containers) > 0 {
+		if !apiequality.Semantic.DeepEqual(existing.Spec.Template.Spec.Containers[0].SecurityContext, desired.Spec.Template.Spec.Containers[0].SecurityContext) {
+			existing.Spec.Template.Spec.Containers[0].SecurityContext = desired.Spec.Template.Spec.Containers[0].SecurityContext
+			mutated = true
+		}
 	}
 	return mutated
 }

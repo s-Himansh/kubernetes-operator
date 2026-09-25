@@ -7,6 +7,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
@@ -38,6 +39,7 @@ type ShardedCacheReconciler struct {
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;update;patch
+// +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;create;update;patch;delete
 
 func (r *ShardedCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
@@ -139,7 +141,7 @@ func (r *ShardedCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, r.Status().Update(ctx, &sc)
 	}
 
-	// Reconcile Service
+	// Reconcile Service (headless). ClusterIP is immutable: recreate on drift.
 	svc := desiredService(&sc)
 	if err := controllerutil.SetControllerReference(&sc, svc, r.Scheme); err != nil {
 		recordReconcile("error")
@@ -157,6 +159,39 @@ func (r *ShardedCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	} else if err != nil {
 		recordReconcile("error")
 		return ctrl.Result{}, err
+	} else if existingSvc.Spec.ClusterIP != "" && existingSvc.Spec.ClusterIP != "None" {
+		logger.Info("Recreating Service as headless", "name", existingSvc.Name, "clusterIP", existingSvc.Spec.ClusterIP)
+		if err := r.Delete(ctx, &existingSvc); err != nil {
+			recordReconcile("error")
+			return ctrl.Result{}, err
+		}
+		r.event(&sc, corev1.EventTypeNormal, "Recreated", fmt.Sprintf("Recreated Service %s as headless", svc.Name))
+		recordReconcile("progressing")
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	// Reconcile PDB (protects rolling availability, minAvailable=1 when shards>1).
+	pdb := desiredPDB(&sc)
+	if err := controllerutil.SetControllerReference(&sc, pdb, r.Scheme); err != nil {
+		recordReconcile("error")
+		return ctrl.Result{}, err
+	}
+	var existingPDB policyv1.PodDisruptionBudget
+	if err := r.Get(ctx, client.ObjectKey{Name: pdb.Name, Namespace: pdb.Namespace}, &existingPDB); apierrors.IsNotFound(err) {
+		if err := r.Create(ctx, pdb); err != nil {
+			r.event(&sc, corev1.EventTypeWarning, "CreateFailed", fmt.Sprintf("Create PDB %s failed: %v", pdb.Name, err))
+			recordReconcile("error")
+			return ctrl.Result{}, err
+		}
+	} else if err != nil {
+		recordReconcile("error")
+		return ctrl.Result{}, err
+	} else if existingPDB.Spec.MinAvailable.String() != pdb.Spec.MinAvailable.String() {
+		existingPDB.Spec.MinAvailable = pdb.Spec.MinAvailable
+		if err := r.Update(ctx, &existingPDB); err != nil {
+			recordReconcile("error")
+			return ctrl.Result{}, err
+		}
 	}
 
 	// Update status based on Deployment availability
@@ -196,5 +231,6 @@ func (r *ShardedCacheReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&cachev1.ShardedCache{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
+		Owns(&policyv1.PodDisruptionBudget{}).
 		Complete(r)
 }
