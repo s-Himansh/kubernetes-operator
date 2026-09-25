@@ -67,16 +67,6 @@ status:
       status: "True"
 ```
 
-## Project Layout
-
-```
-api/v1/                 # CRD types (ShardedCache)
-internal/controller/    # reconciliation loop
-config/                 # kustomize bases: crd, rbac, manager, samples
-charts/                 # Helm chart (alternative to kustomize)
-cmd/main.go             # manager entrypoint
-```
-
 ## Development
 
 ```bash
@@ -107,12 +97,3 @@ make helm-template  # helm template render check
 * ServiceMonitor at `config/manager/servicemonitor.yaml` for Prometheus Operator (30s scrape).
 * Grafana dashboard: `config/grafana/dashboard.json` (reconcile rate, queue depth, ready shards).
 * Liveness/Readiness probes on manager.
-
-## Testing
-
-* `internal/controller/suite_test.go` — envtest with real etcd + apiserver (no mock).
-* `api/v1/*_test.go` — webhook validation unit tests.
-
-## Roadmap vs Resume
-
-Ties portfolio together: operator manages *your own* Sharded LRU Cache — demonstrates K8s API machinery, operator pattern, and GitOps, closing the "Kubernetes internals" skill gap.
