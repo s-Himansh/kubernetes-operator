@@ -1,0 +1,20 @@
+{{- if .Values.metrics.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kubernetes-operator.fullname" . }}-metrics-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kubernetes-operator.labels" . | nindent 4 }}
+    control-plane: controller-manager
+spec:
+  type: ClusterIP
+  ports:
+    - name: metrics
+      port: {{ .Values.metrics.port }}
+      targetPort: {{ .Values.metrics.port }}
+      protocol: TCP
+  selector:
+    control-plane: controller-manager
+    {{- include "kubernetes-operator.selectorLabels" . | nindent 4 }}
+{{- end }}
