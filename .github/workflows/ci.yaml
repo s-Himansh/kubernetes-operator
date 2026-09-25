@@ -15,11 +15,13 @@ jobs:
         with:
           go-version: "1.22"
           cache: true
+      - name: Gofmt
+        run: test -z "$(gofmt -l .)"
       - name: Vet
         run: go vet ./...
       - name: Setup envtest
         run: |
-          go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+          go install sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.18
           mkdir -p /tmp/kubebuilder
           BIN=$(go env GOPATH)/bin/setup-envtest
           KUBEBUILDER_ASSETS=$($BIN use 1.30 --bin-dir /tmp/kubebuilder -p path)
@@ -28,6 +30,33 @@ jobs:
         run: go test -v -race -coverprofile=coverage.out ./...
       - name: Build
         run: go build -o /tmp/manager ./cmd/main.go
+
+  golangci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache: true
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.59.1
+          args: --timeout=5m
+
+  trivy:
+    runs-on: ubuntu-latest
+    needs: docker
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy fs scan
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: "1"
 
   docker:
     runs-on: ubuntu-latest
@@ -51,5 +80,10 @@ jobs:
       - uses: azure/setup-helm@v4
         with:
           version: v3.14.0
+      - name: Install kubeconform
+        run: |
+          curl -sSL -o kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+          tar -xzf kubeconform.tar.gz kubeconform && sudo mv kubeconform /usr/local/bin/ && rm kubeconform.tar.gz
       - run: helm lint ./charts/kubernetes-operator
-      - run: helm template test ./charts/kubernetes-operator | kubeconform -strict || echo "kubeconform not strict gate"
+      - run: helm template test ./charts/kubernetes-operator | kubeconform -strict -summary
+      - run: helm template test ./charts/kubernetes-operator --set webhook.enabled=true | kubeconform -strict -summary
