@@ -6,6 +6,7 @@ import (
 )
 
 // ShardedCacheSpec defines the desired state of ShardedCache.
+// +kubebuilder:validation:XValidation:rule="!has(self.image) || size(self.image) > 0",message="spec.image must not be empty"
 type ShardedCacheSpec struct {
 	// Shards is the desired number of cache shards / deployment replicas.
 	// +kubebuilder:validation:Minimum=1
