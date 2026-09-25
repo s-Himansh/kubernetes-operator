@@ -50,7 +50,7 @@ var _ = Describe("ShardedCache Controller", func() {
 		It("should default and validate webhook logic", func() {
 			sc := &cachev1.ShardedCache{
 				ObjectMeta: metav1.ObjectMeta{Name: "webhook-test", Namespace: "default"},
-				Spec:      cachev1.ShardedCacheSpec{},
+				Spec:       cachev1.ShardedCacheSpec{},
 			}
 			sc.Default()
 			Expect(sc.Spec.Shards).To(Equal(int32(16)))

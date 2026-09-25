@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	finalizerName = "cache.example.com/finalizer"
+	finalizerName        = "cache.example.com/finalizer"
 	conditionReady       = "Ready"
 	conditionProgressing = "Progressing"
 )
