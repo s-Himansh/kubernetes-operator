@@ -1,0 +1,24 @@
+ShardedCache operator installed in namespace {{ .Release.Namespace }}.
+
+1. Check the manager:
+   kubectl -n {{ .Release.Namespace }} get deploy {{ include "kubernetes-operator.fullname" . }}-controller
+   kubectl -n {{ .Release.Namespace }} logs deploy/{{ include "kubernetes-operator.fullname" . }}-controller -c manager
+
+2. Install the sample CR (CRD kept by default):
+   kubectl apply -f config/samples/cache_v1_shardedcache.yaml
+   kubectl get shardedcaches -o wide
+
+3. Metrics:
+   kubectl -n {{ .Release.Namespace }} get svc {{ include "kubernetes-operator.fullname" . }}-metrics-service
+{{- if .Values.metrics.serviceMonitor.enabled }}
+   ServiceMonitor enabled (requires prometheus-operator), 30s scrape by default.
+{{- else }}
+   ServiceMonitor disabled. Enable with --set metrics.serviceMonitor.enabled=true (requires prometheus-operator CRDs).
+{{- end }}
+
+4. Webhooks (opt-in):
+   Disabled by default. To enable: install cert-manager, then
+   --set webhook.enabled=true and run the manager with --enable-webhook.
+{{- if .Values.webhook.enabled }}
+   Webhook Service + Validating/MutatingWebhookConfiguration installed.
+{{- end }}
