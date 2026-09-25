@@ -11,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -90,42 +89,20 @@ func (r *ShardedCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
-	// Scale / update if spec drifted
+	// Scale / update if spec drifted. Only write when managed fields differ
+	// to avoid hot update loops.
 	needsUpdate := false
-	if *existingDep.Spec.Replicas != sc.Spec.Shards {
-		logger.Info("Scaling Deployment", "from", *existingDep.Spec.Replicas, "to", sc.Spec.Shards)
+	if existingDep.Spec.Replicas == nil || *existingDep.Spec.Replicas != sc.Spec.Shards {
+		var from int32
+		if existingDep.Spec.Replicas != nil {
+			from = *existingDep.Spec.Replicas
+		}
+		logger.Info("Scaling Deployment", "from", from, "to", sc.Spec.Shards)
 		existingDep.Spec.Replicas = &sc.Spec.Shards
 		needsUpdate = true
 	}
-	if len(existingDep.Spec.Template.Spec.Containers) > 0 && existingDep.Spec.Template.Spec.Containers[0].Image != sc.Spec.Image {
-		existingDep.Spec.Template.Spec.Containers[0].Image = sc.Spec.Image
+	if syncDeploymentContainers(&existingDep, dep, &sc) {
 		needsUpdate = true
-	}
-	// Propagate resources if changed (simplified: always sync first container)
-	if len(existingDep.Spec.Template.Spec.Containers) > 0 {
-		existingDep.Spec.Template.Spec.Containers[0].Resources = sc.Spec.Resources
-		// Env for cache size
-		envFound := false
-		for i, env := range existingDep.Spec.Template.Spec.Containers[0].Env {
-			if env.Name == "CACHE_CAPACITY" {
-				want := fmt.Sprintf("%d", sc.Spec.CacheSizePerShard*sc.Spec.Shards)
-				if env.Value != want {
-					existingDep.Spec.Template.Spec.Containers[0].Env[i].Value = want
-					needsUpdate = true
-				}
-				envFound = true
-			}
-			if env.Name == "CACHE_SHARDS" {
-				want := fmt.Sprintf("%d", sc.Spec.Shards)
-				if env.Value != want {
-					existingDep.Spec.Template.Spec.Containers[0].Env[i].Value = want
-					needsUpdate = true
-				}
-			}
-		}
-		if !envFound {
-			needsUpdate = true
-		}
 	}
 	if needsUpdate {
 		if err := r.Update(ctx, &existingDep); err != nil {
@@ -209,79 +186,6 @@ func setProgressing(sc *cachev1.ShardedCache, reason, msg string) {
 		ObservedGeneration: sc.Generation,
 	})
 	sc.Status.Phase = "Progressing"
-}
-
-func desiredDeployment(sc *cachev1.ShardedCache) *appsv1.Deployment {
-	labels := map[string]string{
-		"app.kubernetes.io/name":     "sharded-cache",
-		"app.kubernetes.io/instance": sc.Name,
-		"cache.example.com/shard":    "true",
-	}
-	replicas := sc.Spec.Shards
-	return &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      sc.Name + "-cache",
-			Namespace: sc.Namespace,
-			Labels:    labels,
-		},
-		Spec: appsv1.DeploymentSpec{
-			Replicas: &replicas,
-			Selector: &metav1.LabelSelector{MatchLabels: labels},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: labels},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Name:  "cache",
-						Image: sc.Spec.Image,
-						Ports: []corev1.ContainerPort{{ContainerPort: 8080, Name: "http"}},
-						Env: []corev1.EnvVar{
-							{Name: "CACHE_SHARDS", Value: fmt.Sprintf("%d", sc.Spec.Shards)},
-							{Name: "CACHE_CAPACITY", Value: fmt.Sprintf("%d", sc.Spec.CacheSizePerShard*sc.Spec.Shards)},
-							{Name: "PORT", Value: "8080"},
-						},
-						Resources: sc.Spec.Resources,
-						LivenessProbe: &corev1.Probe{
-							ProbeHandler: corev1.ProbeHandler{
-								HTTPGet: &corev1.HTTPGetAction{Path: "/api/health", Port: intstr.FromInt(8080)},
-							},
-							InitialDelaySeconds: 5,
-							PeriodSeconds:       10,
-						},
-						ReadinessProbe: &corev1.Probe{
-							ProbeHandler: corev1.ProbeHandler{
-								HTTPGet: &corev1.HTTPGetAction{Path: "/api/health", Port: intstr.FromInt(8080)},
-							},
-							InitialDelaySeconds: 3,
-							PeriodSeconds:       5,
-						},
-					}},
-				},
-			},
-		},
-	}
-}
-
-func desiredService(sc *cachev1.ShardedCache) *corev1.Service {
-	labels := map[string]string{
-		"app.kubernetes.io/name":     "sharded-cache",
-		"app.kubernetes.io/instance": sc.Name,
-	}
-	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      sc.Name + "-cache",
-			Namespace: sc.Namespace,
-			Labels:    labels,
-		},
-		Spec: corev1.ServiceSpec{
-			Selector: labels,
-			Ports: []corev1.ServicePort{{
-				Name:       "http",
-				Port:       80,
-				TargetPort: intstr.FromInt(8080),
-				Protocol:   corev1.ProtocolTCP,
-			}},
-		},
-	}
 }
 
 // SetupWithManager sets up the controller with the Manager.
