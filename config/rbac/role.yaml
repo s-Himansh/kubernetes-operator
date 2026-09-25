@@ -1,23 +1,79 @@
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: manager-role
 rules:
-  - apiGroups: ["cache.example.com"]
-    resources: ["shardedcaches"]
-    verbs: ["get","list","watch","create","update","patch","delete"]
-  - apiGroups: ["cache.example.com"]
-    resources: ["shardedcaches/status","shardedcaches/finalizers"]
-    verbs: ["get","update","patch"]
-  - apiGroups: ["apps"]
-    resources: ["deployments"]
-    verbs: ["get","list","watch","create","update","patch","delete"]
-  - apiGroups: [""]
-    resources: ["services","events","configmaps"]
-    verbs: ["get","list","watch","create","update","patch","delete"]
-  - apiGroups: ["coordination.k8s.io"]
-    resources: ["leases"]
-    verbs: ["get","list","watch","create","update","patch","delete"]
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cache.example.com
+  resources:
+  - shardedcaches
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cache.example.com
+  resources:
+  - shardedcaches/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - cache.example.com
+  resources:
+  - shardedcaches/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -28,6 +84,6 @@ roleRef:
   kind: ClusterRole
   name: manager-role
 subjects:
-  - kind: ServiceAccount
-    name: controller-manager
-    namespace: cache-system
+- kind: ServiceAccount
+  name: controller-manager
+  namespace: cache-system
