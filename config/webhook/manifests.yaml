@@ -1,0 +1,48 @@
+# Opt-in webhook configurations for production.
+# Requires cert-manager + manager --enable-webhook flag.
+# CA is injected via cert-manager.io/inject-ca-from annotation.
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: shardedcache-mutating-webhook
+  annotations:
+    cert-manager.io/inject-ca-from: cache-system/shardedcache-serving-cert
+webhooks:
+  - name: mshardedcache.kb.io
+    clientConfig:
+      service:
+        name: webhook-service
+        namespace: cache-system
+        path: /mutate-cache-example-com-v1-shardedcache
+        port: 443
+    rules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: ["cache.example.com"]
+        apiVersions: ["v1"]
+        resources: ["shardedcaches"]
+    failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions: ["v1"]
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: shardedcache-validating-webhook
+  annotations:
+    cert-manager.io/inject-ca-from: cache-system/shardedcache-serving-cert
+webhooks:
+  - name: vshardedcache.kb.io
+    clientConfig:
+      service:
+        name: webhook-service
+        namespace: cache-system
+        path: /validate-cache-example-com-v1-shardedcache
+        port: 443
+    rules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: ["cache.example.com"]
+        apiVersions: ["v1"]
+        resources: ["shardedcaches"]
+    failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions: ["v1"]
