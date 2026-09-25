@@ -38,3 +38,8 @@ crd:
 
 cache:
   defaultImage: ghcr.io/s-himansh/shared-lru-cache:latest
+
+webhook:
+  # Disabled by default: enable with cert-manager + --enable-webhook flag.
+  enabled: false
+  port: 9443

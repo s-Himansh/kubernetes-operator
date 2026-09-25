@@ -1,0 +1,51 @@
+{{- if .Values.webhook.enabled }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ include "kubernetes-operator.fullname" . }}-mutating-webhook
+  labels:
+    {{- include "kubernetes-operator.labels" . | nindent 4 }}
+  annotations:
+    cert-manager.io/inject-ca-from: "{{ .Release.Namespace }}/{{ include "kubernetes-operator.fullname" . }}-serving-cert"
+webhooks:
+  - name: mshardedcache.kb.io
+    clientConfig:
+      service:
+        name: {{ include "kubernetes-operator.fullname" . }}-webhook-service
+        namespace: {{ .Release.Namespace }}
+        path: /mutate-cache-example-com-v1-shardedcache
+        port: 443
+    rules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: ["cache.example.com"]
+        apiVersions: ["v1"]
+        resources: ["shardedcaches"]
+    failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions: ["v1"]
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: {{ include "kubernetes-operator.fullname" . }}-validating-webhook
+  labels:
+    {{- include "kubernetes-operator.labels" . | nindent 4 }}
+  annotations:
+    cert-manager.io/inject-ca-from: "{{ .Release.Namespace }}/{{ include "kubernetes-operator.fullname" . }}-serving-cert"
+webhooks:
+  - name: vshardedcache.kb.io
+    clientConfig:
+      service:
+        name: {{ include "kubernetes-operator.fullname" . }}-webhook-service
+        namespace: {{ .Release.Namespace }}
+        path: /validate-cache-example-com-v1-shardedcache
+        port: 443
+    rules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: ["cache.example.com"]
+        apiVersions: ["v1"]
+        resources: ["shardedcaches"]
+    failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions: ["v1"]
+{{- end }}

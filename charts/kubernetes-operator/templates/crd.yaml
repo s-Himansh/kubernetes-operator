@@ -42,7 +42,7 @@ spec:
               properties:
                 shards: {type: integer, minimum: 1, maximum: 64, default: 16}
                 cacheSizePerShard: {type: integer, minimum: 1, default: 1000}
-                image: {type: string, default: "{{ .Values.cache.defaultImage }}"}
+                image: {type: string, minLength: 1, default: "{{ .Values.cache.defaultImage }}"}
                 version: {type: string}
                 resources: {type: object, x-kubernetes-preserve-unknown-fields: true}
             status:
