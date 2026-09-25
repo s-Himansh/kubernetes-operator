@@ -26,6 +26,10 @@ resources:
 metrics:
   enabled: true
   port: 8080
+  serviceMonitor:
+    # Requires prometheus-operator CRDs.
+    enabled: false
+    interval: 30s
 
 health:
   port: 8081
