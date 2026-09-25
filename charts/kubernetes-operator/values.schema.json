@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "kubernetes-operator values",
+  "type": "object",
+  "properties": {
+    "replicaCount": {"type": "integer", "minimum": 1, "maximum": 5},
+    "image": {
+      "type": "object",
+      "required": ["repository", "tag"],
+      "properties": {
+        "repository": {"type": "string", "minLength": 1},
+        "tag": {"type": "string", "minLength": 1},
+        "pullPolicy": {"type": "string", "enum": ["Always", "IfNotPresent", "Never"]}
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+        "serviceMonitor": {
+          "type": "object",
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "interval": {"type": "string", "pattern": "^[0-9]+s$"}
+          }
+        }
+      }
+    },
+    "health": {
+      "type": "object",
+      "properties": {
+        "port": {"type": "integer", "minimum": 1, "maximum": 65535}
+      }
+    },
+    "leaderElection": {
+      "type": "object",
+      "properties": {
+        "enabled": {"type": "boolean"}
+      }
+    },
+    "rbac": {
+      "type": "object",
+      "properties": {
+        "create": {"type": "boolean"}
+      }
+    },
+    "crd": {
+      "type": "object",
+      "properties": {
+        "keep": {"type": "boolean"}
+      }
+    },
+    "cache": {
+      "type": "object",
+      "properties": {
+        "defaultImage": {"type": "string", "minLength": 1}
+      }
+    },
+    "webhook": {
+      "type": "object",
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "port": {"type": "integer", "minimum": 1, "maximum": 65535}
+      }
+    }
+  }
+}
