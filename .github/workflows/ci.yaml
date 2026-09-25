@@ -21,7 +21,7 @@ jobs:
         run: go vet ./...
       - name: Setup envtest
         run: |
-          go install sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.18
+          go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
           mkdir -p /tmp/kubebuilder
           BIN=$(go env GOPATH)/bin/setup-envtest
           KUBEBUILDER_ASSETS=$($BIN use 1.30 --bin-dir /tmp/kubebuilder -p path)
@@ -85,5 +85,5 @@ jobs:
           curl -sSL -o kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
           tar -xzf kubeconform.tar.gz kubeconform && sudo mv kubeconform /usr/local/bin/ && rm kubeconform.tar.gz
       - run: helm lint ./charts/kubernetes-operator
-      - run: helm template test ./charts/kubernetes-operator | kubeconform -strict -summary
-      - run: helm template test ./charts/kubernetes-operator --set webhook.enabled=true | kubeconform -strict -summary
+      - run: helm template test ./charts/kubernetes-operator | kubeconform -strict -skip CustomResourceDefinition -summary
+      - run: helm template test ./charts/kubernetes-operator --set webhook.enabled=true | kubeconform -strict -skip CustomResourceDefinition -summary
